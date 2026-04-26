@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Art Gallery</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #003380; color: #ffffff; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: auto; background: #1e1e1e; padding: 30px; border-radius: 10px; box-shadow: 0 8px 16px rgba(0,0,0,0.5); }
+        h1 { text-align: center; color: #ffffff; border-bottom: 2px solid #333; padding-bottom: 10px; }
+        .form-section { background: #002e58; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
+        input { width: 100%; padding: 10px; margin: 10px 0; border: none; border-radius: 4px; background: #3d3d3d; color: white; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background-color: #288cff; color: #000; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; transition: 0.3s; }
+        button:hover { background-color: #1a5fad; }
+        .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; }
+        .art-card { background: #2c2c2c; padding: 15px; border-radius: 8px; border-left: 4px solid #03dac6; }
+        .art-title { font-size: 1.2em; font-weight: bold; color: #03dac6; }
+        .status-msg { margin-top: 10px; font-weight: bold; text-align: center; }
+        .success { color: #058d00; }
+        .error { color: #99001c; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🎨 Art Gallery</h1>
+    
+    <div class="form-section">
+        <h3>Register Artwork Here</h3>
+        <form id="artForm">
+            <input type="text" id="name" placeholder="Art name" required>
+            <input type="text" id="artist" placeholder="Artist" required>
+            <input type="text" id="style" placeholder="Style" required>
+            <button type="submit">Save Artwork</button>
+        </form>
+        <div id="statusMessage" class="status-msg"></div>
+    </div>
+
+    <h3>Current Catalog</h3>
+    <div id="gallery" class="gallery-grid">
+        </div>
+</div>
+
+<script>
+   const API_URL = "http://127.0.0.1:8080/api/art";
+
+    // Función GET: Cargar la galería (Actualizada con botones Edit/Delete)
+    async function loadGallery() {
+        try {
+            const response = await fetch(API_URL);
+            const data = await response.json();
+            
+            const galleryDiv = document.getElementById('gallery');
+            galleryDiv.innerHTML = ''; 
+
+            data.forEach(art => {
+                const card = `
+                    <div class="art-card">
+                        <div class="art-title">${art.name}</div>
+                        <div>👨‍🎨 ${art.artist}</div>
+                        <div>🎭 ${art.style}</div>
+                        <div style="margin-top: 15px; display: flex; gap: 10px;">
+                            <button onclick="updateArt('${art.name}')" style="background-color: #ffb86c; color: #000; padding: 5px; flex: 1; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Edit</button>
+                            <button onclick="deleteArt('${art.name}')" style="background-color: #cf6679; color: #000; padding: 5px; flex: 1; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Delete</button>
+                        </div>
+                    </div>`;
+                galleryDiv.innerHTML += card;
+            });
+        } catch (error) {
+            console.error("Error, Artwork not loaded:", error);
+        }
+    }
+
+    // Función POST: Enviar formulario para registrar nueva obra
+    document.getElementById('artForm').addEventListener('submit', async (e) => {
+        e.preventDefault(); 
+        const statusMsg = document.getElementById('statusMessage');
+        
+        const newArt = {
+            name: document.getElementById('name').value,
+            artist: document.getElementById('artist').value,
+            style: document.getElementById('style').value
+        };
+
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newArt)
+            });
+
+            if (response.status === 201) {
+                statusMsg.className = "status-msg success";
+                statusMsg.innerText = "¡Artwork registered successfully (Code 201)!";
+                document.getElementById('artForm').reset();
+                loadGallery(); // Recargar la lista
+            } else if (response.status === 400) {
+                statusMsg.className = "status-msg error";
+                statusMsg.innerText = "Error 400: Missing or invalid data.";
+            }
+        } catch (error) {
+            statusMsg.className = "status-msg error";
+            statusMsg.innerText = "Error de conexión con la API.";
+        }
+    });
+
+    // Función PUT: Actualizar obra
+    async function updateArt(name) {
+        const newArtist = prompt(`Enter the new artist for "${name}":`);
+        if (!newArtist) return; 
+        
+        const newStyle = prompt(`Enter the new style for "${name}":`);
+        if (!newStyle) return;
+
+        const updatedArt = { name: name, artist: newArtist, style: newStyle };
+
+        try {
+            const response = await fetch(`${API_URL}/${name}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedArt)
+            });
+            
+            if(response.ok) {
+                loadGallery(); 
+            } else {
+                alert("Error updating the artwork.");
+            }
+        } catch(error) { console.error("Error:", error); }
+    }
+
+    // Función DELETE: Eliminar obra
+    async function deleteArt(name) {
+        if(confirm(`Are you sure you want to delete "${name}"?`)) {
+            try {
+                const response = await fetch(`${API_URL}/${name}`, { method: 'DELETE' });
+                if(response.ok) {
+                    loadGallery(); 
+                } else {
+                    alert("Error deleting the artwork.");
+                }
+            } catch(error) { console.error("Error:", error); }
+        }
+    }
+
+    // Cargar datos apenas se abra la página
+    loadGallery();
+</script>
+
+</body>
+</html>
